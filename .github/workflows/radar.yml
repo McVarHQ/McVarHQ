@@ -27,16 +27,28 @@ jobs:
       - name: install deps
         run: pip install fonttools
 
+      - name: debug — confirm fonts are where the script expects
+        run: |
+          echo "repo root:"; ls -la
+          echo "fonts/ contents (expects Early_GameBoy.ttf, VT323-Regular.ttf, exact case):"
+          ls -la fonts/ || echo "!! no fonts/ folder at repo root !!"
+
       - name: generate panel4_radar.svg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RADAR_USER: ${{ github.repository_owner }}
         run: python scripts/gen_radar.py --out panel4_radar.svg
 
+      - name: generate trophy case (all trophies + ranks, for picking)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RADAR_USER: ${{ github.repository_owner }}
+        run: python scripts/gen_trophy_case.py --out trophy_case.svg
+
       - name: commit if changed
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add panel4_radar.svg
-          git diff --cached --quiet || git commit -m "chore: refresh radar panel"
+          git add panel4_radar.svg trophy_case.svg trophy_case.md
+          git diff --cached --quiet || git commit -m "chore: refresh radar panel + trophy case"
           git push

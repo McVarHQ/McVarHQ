@@ -9,10 +9,31 @@ import html
 
 import os
 _FD = os.environ.get('FONT_DIR', os.path.join(os.path.dirname(__file__), '..', 'fonts'))
-FONTS = {
-    'gb': os.path.join(_FD, 'Early_GameBoy.ttf'),   # Early-GameBoy (headings)
-    'vt': os.path.join(_FD, 'VT323-Regular.ttf'),   # VT323 (> code lines)
+_WANT = {
+    'gb': 'Early_GameBoy.ttf',   # Early-GameBoy (headings)
+    'vt': 'VT323-Regular.ttf',   # VT323 (> code lines)
 }
+
+def _resolve(key):
+    """Find the font file case-insensitively so a rename on GitHub's web
+    uploader (e.g. vt323-regular.ttf) doesn't hard-fail the whole workflow."""
+    want = _WANT[key]
+    exact = os.path.join(_FD, want)
+    if os.path.isfile(exact):
+        return exact
+    if os.path.isdir(_FD):
+        for fn in os.listdir(_FD):
+            if fn.lower() == want.lower():
+                return os.path.join(_FD, fn)
+    found = os.listdir(_FD) if os.path.isdir(_FD) else None
+    raise FileNotFoundError(
+        f"Could not find '{want}' in FONT_DIR={_FD!r}. "
+        f"Contents of that folder: {found!r}. "
+        f"Expected layout: <repo-root>/fonts/{want} "
+        f"(sibling of scripts/, not inside it)."
+    )
+
+FONTS = {k: _resolve(k) for k in _WANT}
 _cache = {}
 
 def _load(key):
