@@ -167,7 +167,7 @@ def rank_radius(key, val):
     return 1.0
 
 # -------------------------------------------------------------- trophies ---
-TROPHIES_SHOW=["stars","commits","prs","followers"]
+TROPHIES_SHOW=["repos","stars","followers"]
 
 LABELS={"stars":"STARS","commits":"COMMITS","prs":"PRS","issues":"ISSUES",
         "reviews":"REVIEWS","followers":"FOLLOWERS","repos":"REPOS",
