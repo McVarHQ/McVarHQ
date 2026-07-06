@@ -1,43 +1,46 @@
 #!/usr/bin/env python3
 """
-Panel 4 generator — GitHub activity RADAR + TROPHIES in the Game Boy theme.
-
-Runs inside a GitHub Action (GITHUB_TOKEN -> GraphQL) on a schedule, renders
-panel4_radar.svg, and the workflow commits it so the profile README stays
-fresh without any live elements in the SVG.
-
-Usage:
-  python scripts/gen_radar.py --user McVarHQ --out panel4_radar.svg
-  python scripts/gen_radar.py --mock --out panel4_radar.svg          # no API
-  python scripts/gen_radar.py --mock --static --out preview.svg      # no SMIL
+Panel 4 — one L composition (prompt + trophies in the band, radar in the arm),
+emitted as TWO horizontally-cut SVGs:
+  panel4_band.svg — full-width band (886x189): prompt + trophy fan
+  panel4_arm.svg  — arm (515x357): radar (its top rows live in the band piece;
+                    float-stacked rows butt at 0px so the cut is invisible)
+more(me) (static, square) floats beside the arm in the pocket.
 """
 import sys, os, json, argparse, math, urllib.request
 sys.path.insert(0, os.path.dirname(__file__))
 import fonts as F
 import palette as P
 
-# ---------------------------------------------------------------- theme ----
 WHITE=P.PALETTE["white"]; BLACK=P.PALETTE["black"]
 PLUM=P.PANEL_SHADOW; PL=P.PLUM_LIGHT; PD=P.PLUM_DARK; PDEEP=P.PLUM_DEEP
-GOLD=P.PANELS["radar"]                  # curry gold interior  #D7A32E
-BLUEB=P.PALETTE["blackberry"]           # radar polygon        #31407B
+GOLD=P.PANELS["radar"]
+BLUEB=P.PALETTE["blackberry"]
 GREEN=P.PALETTE["classic_green"]
 CYAN =P.PALETTE["aqueduct_cyan"]
 RED  =P.PALETTE["fireball_red"]
 
-OFF=9; BEV=5; BW=18                     # locked bevel recipe (make_panels.py)
+OFF=9; BEV=5; BW=18
 
 # ------------------------------------------------------------- geometry ----
-# native 880-wide canvas to match the other panels' display scale.
-M=20
-PW,PH = 840,490                         # L outer size (720x420 spec x 7/6)
-NW,NH = 350,350                         # bottom-right notch (300x300 x 7/6)
-CW = M*2+PW+OFF-9                       # 880
-CH = M+PH+OFF+M                         # canvas
-OX,OY = M,M
+M=6; MT=6; ML=30; MR=22              # minimal top margin (dividers handle spacing)
+PW,PH = 865,543
+NW,NH = 374,369
+OX,OY = ML,MT
+CW = ML+PW+OFF+MR                    # 926
+CH = MT+PH+OFF+M                     # arm piece height stays NH+6 = mm canvas
+CUTY = OY+(PH-NH)+OFF                # 189: horizontal cut (band piece height)
+ARM_W = 532                          # arm piece width (mm right edge lands on band art right)
+
+IX0,IY0 = OX+BW, OY+BW
+IX1     = OX+PW-BW                   # 853
+ARM_X1  = OX+PW-NW-BW                # 478
+ARM_Y1  = OY+PH-BW                   # 519
+BAND_IB = OY+(PH-NH)-BW              # 162 (interior band bottom)
+
+def px(v): return f"{v:.1f}"
 
 def l_frame():
-    """Locked raised-bevel L (deep shadow, plum base, light/dark bevel, fill)."""
     s=[]
     x0,y0,x1,y1 = OX,OY,OX+PW,OY+PH
     nx,ny = x1-NW, y1-NH
@@ -54,30 +57,41 @@ def l_frame():
              f'V{y1-BW} H{x0+BW} Z" fill="{GOLD}"/>')
     return s
 
-# interior bounds (abs): top band + left arm
-IX0,IY0 = OX+BW, OY+BW                          # 38,38
-IX1     = OX+PW-BW                              # 822
-BAND_B  = OY+PH-NH                              # 160  (interior band bottom)
-ARM_X1  = OX+PW-NW-BW                           # 472
-ARM_Y1  = OY+PH-BW                              # 492
+# --------------------------------------------------------- typed prompt ----
+PROMPT_TXT="> github.exe -RDR -TRPH"
+T0=0.35; CPS=0.05
+T_DONE=T0+len(PROMPT_TXT)*CPS        # 1.5s
+T_PULSE=T_DONE+0.30                  # prompt starts pulsing
+T_GRID=T_DONE+0.25                   # empty graph pops
+T_SON=T_DONE+0.90                    # first sonar wave launches
+T_POLY=T_SON+0.55                    # wave "paints" the data polygon
 
 def corner_prompt(static):
-    """white corner squares + big pulsing prompt (panel-3 style, black)."""
     s=[]
     big=40
     sx,sy = IX0+14, IY0+12
     s.append(f'<rect x="{sx}" y="{sy}" width="{big}" height="{big}" fill="{WHITE}"/>')
     sm=round(big*0.57); dg=round(big*0.09)
     s.append(f'<rect x="{sx+big+dg}" y="{sy+big+dg}" width="{sm}" height="{sm}" fill="{WHITE}"/>')
-    fs=30
-    tx=sx+big+round(big*1.0); ty=sy+big*0.5+fs*0.34
-    g,w=F.text_svg("> github.exe -RADAR",'vt',fs,tx,ty,BLACK)
-    if static: s.append(g)
-    else: s.append(f'<g><animate attributeName="opacity" values="1;0.35;1" '
-                   f'dur="1.1s" repeatCount="indefinite"/>{g}</g>')
-    return s, tx+w
+    fs=28
+    tx=sx+big+22
+    ty=sy+big*0.5+fs*0.34
+    if static:
+        s.append(F.text_svg(PROMPT_TXT,'vt',fs,tx,ty,BLACK)[0])
+        return s
+    chars=[]
+    for i,ch in enumerate(PROMPT_TXT):
+        if ch==' ': continue
+        xoff=tx+F.measure(PROMPT_TXT[:i],'vt',fs)
+        g,_=F.text_svg(ch,'vt',fs,xoff,ty,BLACK)
+        t=T0+i*CPS
+        chars.append(f'<g opacity="0"><set attributeName="opacity" to="1" '
+                     f'begin="{t:.2f}s" fill="freeze"/>{g}</g>')
+    s.append(f'<g>{"".join(chars)}'
+             f'<animate attributeName="opacity" values="1;0.35;1" dur="1.1s" '
+             f'begin="{T_PULSE:.2f}s" repeatCount="indefinite"/></g>')
+    return s
 
-# ---------------------------------------------------------------- stats ----
 def gql(token, query, variables):
     req=urllib.request.Request("https://api.github.com/graphql",
         data=json.dumps({"query":query,"variables":variables}).encode(),
@@ -141,73 +155,25 @@ def fetch_stats(user, token):
 MOCK={"commits":412,"prs":34,"issues":9,"reviews":4,
       "stars":17,"repos":15,"followers":1,"contrib":3}
 
-# radar axis caps: value/cap (capped at 1.0) = how far the vertex reaches.
-CAPS={"commits":600,"prs":40,"issues":30,"reviews":20}
-
-# ---------------------------------------------------------------- radar ----
-def px(v): return f"{v:.1f}"
-
-def radar(stats, static):
-    """4-axis pixel spider chart in the L's left arm (all-time numbers)."""
-    s=[]
-    band_b = OY+PH-NH-BW                 # interior bottom edge of the top band
-    Rmax=120; LS=13                      # ring radius, label font size
-    # centre chosen so labels+counts stay inside the arm on all four sides
-    lw=F.measure("REVIEWS",'gb',LS)      # widest side label
-    cx=max(IX0+10+lw+12+Rmax, (IX0+ARM_X1)/2-20)
-    cy=band_b+28+LS+Rmax                 # top label fully below the band edge
-    cy=min(cy, ARM_Y1-46-Rmax)           # bottom count stays inside
-    axes=[("COMMITS","commits",(0,-1)),  # up
-          ("PRS","prs",(1,0)),           # right
-          ("ISSUES","issues",(0,1)),     # down
-          ("REVIEWS","reviews",(-1,0))]  # left
-    for k in (0.25,0.5,0.75,1.0):
-        r=Rmax*k
-        pts=f"{px(cx)},{px(cy-r)} {px(cx+r)},{px(cy)} {px(cx)},{px(cy+r)} {px(cx-r)},{px(cy)}"
-        wd = 3 if k==1.0 else 1.5
-        s.append(f'<polygon points="{pts}" fill="none" stroke="{BLACK}" '
-                 f'stroke-width="{wd}"/>')
-    s.append(f'<line x1="{px(cx)}" y1="{px(cy-Rmax)}" x2="{px(cx)}" y2="{px(cy+Rmax)}" stroke="{BLACK}" stroke-width="1.5"/>')
-    s.append(f'<line x1="{px(cx-Rmax)}" y1="{px(cy)}" x2="{px(cx+Rmax)}" y2="{px(cy)}" stroke="{BLACK}" stroke-width="1.5"/>')
-    rel=[]
-    for _,k,(dx,dy) in axes:
-        v=min(1.0, stats[k]/CAPS[k]); r=Rmax*max(v,0.04)
-        rel.append((dx*r, dy*r))
-    pts=" ".join(f"{px(a)},{px(b)}" for a,b in rel)
-    poly=(f'<polygon points="{pts}" fill="{BLUEB}" fill-opacity="0.78" '
-          f'stroke="{BLACK}" stroke-width="3"/>')
-    dots="".join(f'<rect x="{px(a-4)}" y="{px(b-4)}" width="8" height="8" '
-                 f'fill="{WHITE}" stroke="{BLACK}" stroke-width="2"/>' for a,b in rel)
-    if static:
-        s.append(f'<g transform="translate({px(cx)},{px(cy)})">{poly}{dots}</g>')
-    else:
-        s.append(
-          f'<g transform="translate({px(cx)},{px(cy)})">'
-          f'<g transform="scale(0)">'
-          f'<animateTransform attributeName="transform" type="scale" '
-          f'values="0;1.06;1" keyTimes="0;0.8;1" dur="0.9s" begin="0.5s" '
-          f'calcMode="spline" keySplines="0.2 0.7 0.3 1;0.4 0 0.6 1" fill="freeze"/>'
-          f'{poly}{dots}</g></g>')
-    lab=[("COMMITS", cx, cy-Rmax-26, 'middle', stats["commits"], cx, cy-Rmax-8),
-         ("PRS",     cx+Rmax+12, cy-12, 'start', stats["prs"], cx+Rmax+12, cy+8),
-         ("ISSUES",  cx, cy+Rmax+22, 'middle', stats["issues"], cx, cy+Rmax+40),
-         ("REVIEWS", cx-Rmax-12, cy-12, 'end', stats["reviews"], cx-Rmax-12, cy+8)]
-    for name,lx,ly,anc,val,vx,vy in lab:
-        s.append(F.text_svg(name,'gb',LS,lx,ly,BLACK,anchor=anc)[0])
-        s.append(F.text_svg(str(val),'vt',18,vx,vy,BLACK,anchor=anc)[0])
-    # graph-style legend, tucked in the arm's bottom-right corner
-    s.append(F.text_svg("ALL-TIME",'vt',16,ARM_X1-8,ARM_Y1-10,BLACK,anchor='end')[0])
-    return s
+# ------------------------------------------------- rank-based scaling ------
+def rank_radius(key, val):
+    c,b,a,s = THRESH[key]
+    pts=[(0,0.0),(c,0.25),(b,0.50),(a,0.75),(s,1.00)]
+    if val>=s: return 1.0
+    for (x0,r0),(x1,r1) in zip(pts,pts[1:]):
+        if val<x1:
+            if x1==x0: return r1
+            return r0+(r1-r0)*(val-x0)/(x1-x0)
+    return 1.0
 
 # -------------------------------------------------------------- trophies ---
-# which trophies the radar panel shows (pick from trophy_case.svg; order = left->right)
 TROPHIES_SHOW=["stars","commits","prs","followers"]
 
 LABELS={"stars":"STARS","commits":"COMMITS","prs":"PRS","issues":"ISSUES",
         "reviews":"REVIEWS","followers":"FOLLOWERS","repos":"REPOS",
         "contrib":"CONTRIB"}
 RANKS=[("S",P.PALETTE["fireball_red"]),("A",CYAN),("B",GREEN),("C",WHITE)]
-THRESH={ # metric: (C,B,A,S) minimums
+THRESH={
  "stars":(1,5,20,50), "commits":(1,100,400,1000), "prs":(1,10,30,100),
  "issues":(1,5,20,50), "reviews":(1,5,20,50), "followers":(1,10,40,100),
  "repos":(1,10,25,50), "contrib":(1,3,10,25),
@@ -221,13 +187,12 @@ def rank_of(metric,val):
     return ("-", PD)
 
 def _shade(hexc,f):
-    """lighten (f>0) / darken (f<0) a #RRGGBB towards white/black."""
     r=int(hexc[1:3],16); g=int(hexc[3:5],16); b=int(hexc[5:7],16)
     t=255 if f>0 else 0; f=abs(f)
     mix=lambda v:int(round(v+(t-v)*f))
     return f"#{mix(r):02X}{mix(g):02X}{mix(b):02X}"
 
-TROPHY=[            # pixel cup bitmap (7 wide)
+TROPHY=[
  "XXXXXXX",
  "XXXXXXX",
  ".XXXXX.",
@@ -235,82 +200,193 @@ TROPHY=[            # pixel cup bitmap (7 wide)
  "...X...",
  "..XXX..",
 ]
+CELL=8                                  # bigger trophies
 
-def draw_trophy(gx, ty, key, val):
-    """One pixel trophy centred at gx: two-tone cup + glint, rank letter on
-    the cup, label+value contained on the black base plaque."""
+def draw_trophy(gx, ty, key, val, static=True, glim_begin=None):
     letter,colr=rank_of(key,val)
     lite=_shade(colr,0.30); dark=_shade(colr,-0.25)
-    cell=6; tw=7*cell; ox=gx-tw/2
+    cell=CELL; tw=7*cell; ox=gx-tw/2
     cup=[]
     for r,row in enumerate(TROPHY):
         rowcol = lite if r<2 else (colr if r<4 else dark)
         cells=[c for c,ch in enumerate(row) if ch=='X']
         for c in cells:
-            fill = dark if c==cells[-1] else rowcol   # right-edge shading
+            fill = dark if c==cells[-1] else rowcol
             cup.append(f'<rect x="{px(ox+c*cell)}" y="{px(ty+r*cell)}" '
                        f'width="{cell}" height="{cell}" fill="{fill}"/>')
-    # glint (top-left sparkle on the rim)
-    cup.append(f'<rect x="{px(ox+1*cell)}" y="{px(ty)}" width="{cell}" height="{cell}" fill="{WHITE}"/>')
-    cup.append(f'<rect x="{px(ox+1*cell)}" y="{px(ty+cell)}" width="{cell}" height="{cell*0.5}" fill="{WHITE}"/>')
-    # handles (dark shade)
+    glint=(f'<rect x="{px(ox+1*cell)}" y="{px(ty)}" width="{cell}" height="{cell}" fill="{WHITE}"/>'
+           f'<rect x="{px(ox+1*cell)}" y="{px(ty+cell)}" width="{cell}" height="{cell*0.5}" fill="{WHITE}"/>')
+    if static or glim_begin is None:
+        cup.append(glint)
+    else:
+        cup.append(f'<g>{glint}<animate attributeName="opacity" '
+                   f'values="1;1;0.15;1;1" keyTimes="0;0.42;0.5;0.58;1" '
+                   f'dur="2.8s" begin="{glim_begin:.2f}s" '
+                   f'repeatCount="indefinite"/></g>')
     cup.append(f'<rect x="{px(ox-cell)}" y="{px(ty)}" width="{cell}" height="{cell*2}" fill="{dark}"/>')
     cup.append(f'<rect x="{px(ox+tw)}" y="{px(ty)}" width="{cell}" height="{cell*2}" fill="{dark}"/>')
-    # rank letter on the cup
-    cup.append(F.text_svg(letter,'gb',14,gx,ty+2*cell+11,BLACK,anchor='middle')[0])
-    # base plaque with label + value INSIDE it
-    pw=max(tw+4*cell, F.measure(LABELS[key],'gb',8)+14)
+    cup.append(F.text_svg(letter,'gb',18,gx,ty+2*cell+14,BLACK,anchor='middle')[0])
+    pw=max(tw+4*cell, F.measure(LABELS[key],'gb',10)+18)
     pxq=gx-pw/2; pyq=ty+6*cell+3
-    cup.append(f'<rect x="{px(pxq)}" y="{px(pyq)}" width="{px(pw)}" height="28" fill="{BLACK}"/>')
-    cup.append(f'<rect x="{px(pxq)}" y="{px(pyq)}" width="{px(pw)}" height="3" fill="{_shade(GOLD,-0.35)}"/>')
-    cup.append(F.text_svg(LABELS[key],'gb',8,gx,pyq+13,WHITE,anchor='middle')[0])
-    cup.append(F.text_svg(str(val),'vt',14,gx,pyq+25,WHITE,anchor='middle')[0])
+    edge=_shade(GOLD,-0.35)
+    cup.append(f'<rect x="{px(pxq)}" y="{px(pyq)}" width="{px(pw)}" height="34" '
+               f'fill="{BLACK}" stroke="{edge}" stroke-width="2"/>')
+    cup.append(f'<rect x="{px(pxq)}" y="{px(pyq)}" width="{px(pw)}" height="3" fill="{edge}"/>')
+    cup.append(F.text_svg(LABELS[key],'gb',10,gx,pyq+15,WHITE,anchor='middle')[0])
+    cup.append(F.text_svg(str(val),'vt',17,gx,pyq+30,WHITE,anchor='middle')[0])
     return cup, pw
 
-def trophies(stats, static, x_from):
-    """tight trophy row in the top band, right-aligned."""
+def trophies(stats, static):
+    """bigger, spread fan in the band's right region. Animated entry: centre
+    card(s) pop first, others fan outward from centre; then glimmer loop."""
     s=[]
-    items=TROPHIES_SHOW
-    ty=IY0+10
-    # pre-measure plaque widths to pack tightly right-aligned
-    widths=[]
-    for key in items:
-        pw=max(7*6+4*6, F.measure(LABELS[key],'gb',8)+14)
-        widths.append(pw)
-    GAPT=14
-    total=sum(widths)+GAPT*(len(items)-1)
-    x=max(x_from, IX1-14-total)
+    items=TROPHIES_SHOW; n=len(items)
+    ty=IY0+12
+    TH=6*CELL+3+34
+    step=30.0/n
+    centre=(n-1)/2.0
+    pitch=64                             # spread out (still overlapping)
+    outer=max(abs(0-centre),abs(n-1-centre))*step
+    Rpiv=( (n-1)/2.0*pitch )/max(math.sin(math.radians(outer)),1e-6) if n>1 else 0
+    gxc=((OX+PW-NW)+IX1)/2               # centred over the pocket column
+    pivx, pivy = gxc, ty+TH+Rpiv
     for i,key in enumerate(items):
-        gx=x+widths[i]/2
-        cup,_=draw_trophy(gx,ty,key,stats[key])
+        tilt=(i-centre)*step
+        d=abs(i-centre)
+        cup,_=draw_trophy(gxc,ty,key,stats[key], static=static,
+                          glim_begin=None if static else T_DONE+2.2+i*0.5)
         if static:
-            s.append(f'<g>{"".join(cup)}</g>')
+            s.append(f'<g transform="rotate({tilt:.2f} {px(pivx)} {px(pivy)})">{"".join(cup)}</g>')
         else:
-            b=0.6+i*0.18
-            s.append(f'<g opacity="0"><set attributeName="opacity" to="1" '
-                     f'begin="{b:.2f}s" fill="freeze"/>{"".join(cup)}</g>')
-        x+=widths[i]+GAPT
+            b=T_DONE+0.35+d*0.25          # centre first, then outward
+            s.append(
+              f'<g opacity="0"><set attributeName="opacity" to="1" '
+              f'begin="{b:.2f}s" fill="freeze"/>'
+              f'<g transform="rotate(0 {px(pivx)} {px(pivy)})">'
+              f'<animateTransform attributeName="transform" type="rotate" '
+              f'values="0 {px(pivx)} {px(pivy)};{tilt:.2f} {px(pivx)} {px(pivy)}" '
+              f'begin="{b:.2f}s" dur="0.45s" calcMode="spline" '
+              f'keySplines="0.2 0.8 0.3 1" fill="freeze"/>'
+              f'{"".join(cup)}</g></g>')
+    return s
+
+# ---------------------------------------------------------------- radar ----
+def radar(stats, static):
+    """sequence: empty grid pops (T_GRID) -> first sonar wave (T_SON) paints
+    the polygon (T_POLY) -> resting loop of waves over the static radar."""
+    s=[]
+    Rmax=120; LS=13
+    lext=12+F.measure("REVIEWS",'gb',LS)
+    rext=12+F.measure("PRS",'gb',LS)
+    cx=(IX0+ARM_X1)/2 + (lext-rext)/2
+    cy=(CUTY+ARM_Y1)/2                   # radar lives FULLY in the arm piece (below the cut)
+    axes=[("COMMITS","commits",(0,-1)),
+          ("PRS","prs",(1,0)),
+          ("ISSUES","issues",(0,1)),
+          ("REVIEWS","reviews",(-1,0))]
+    # grid (rings + axis lines) in RELATIVE coords so it can pop from centre
+    grid=[]
+    for k in (0.25,0.5,0.75,1.0):
+        r=Rmax*k
+        wd = 3 if k==1.0 else 1.5
+        grid.append(f'<polygon points="0,{px(-r)} {px(r)},0 0,{px(r)} {px(-r)},0" '
+                    f'fill="none" stroke="{BLACK}" stroke-width="{wd}"/>')
+    grid.append(f'<line x1="0" y1="{px(-Rmax)}" x2="0" y2="{px(Rmax)}" stroke="{BLACK}" stroke-width="1.5"/>')
+    grid.append(f'<line x1="{px(-Rmax)}" y1="0" x2="{px(Rmax)}" y2="0" stroke="{BLACK}" stroke-width="1.5"/>')
+    rel=[]
+    for _,k,(dx,dy) in axes:
+        v=rank_radius(k, stats[k]); r=Rmax*max(v,0.04)
+        rel.append((dx*r, dy*r))
+    pts=" ".join(f"{px(a)},{px(b)}" for a,b in rel)
+    poly=(f'<polygon points="{pts}" fill="{BLUEB}" fill-opacity="0.78" '
+          f'stroke="{BLACK}" stroke-width="3"/>')
+    dots="".join(f'<rect x="{px(a-4)}" y="{px(b-4)}" width="8" height="8" '
+                 f'fill="{WHITE}" stroke="{BLACK}" stroke-width="2"/>' for a,b in rel)
+    labs=[]; vals_static=[]; ticks=[]
+    lab=[("COMMITS","commits", cx, cy-Rmax-26, 'middle', cx, cy-Rmax-8),
+         ("PRS","prs",     cx+Rmax+12, cy-12, 'start', cx+Rmax+12, cy+8),
+         ("ISSUES","issues",  cx, cy+Rmax+22, 'middle', cx, cy+Rmax+40),
+         ("REVIEWS","reviews", cx-Rmax-12, cy-12, 'end', cx-Rmax-12, cy+8)]
+    for name,key,lx,ly,anc,vx,vy in lab:
+        labs.append(F.text_svg(name,'gb',LS,lx,ly,BLACK,anchor=anc)[0])
+        N=stats[key]
+        vals_static.append(F.text_svg(str(N),'vt',18,vx,vy,BLACK,anchor=anc)[0])
+        # animated: value TICKS UP from 0 while the wave reveals this axis's
+        # vertex, then freezes at the real number forever
+        vfrac=max(rank_radius(key,N),0.04)
+        t_end=T_SON+3.4*vfrac
+        steps=12
+        seq=[]
+        for i in range(steps+1):
+            v=round(N*i/steps)
+            t=T_SON+(t_end-T_SON)*i/steps
+            if seq and seq[-1][1]==v: continue
+            seq.append((t,v))
+        for j,(t,v) in enumerate(seq):
+            g=F.text_svg(str(v),'vt',18,vx,vy,BLACK,anchor=anc)[0]
+            offs=(f'<set attributeName="opacity" to="0" begin="{seq[j+1][0]:.2f}s" fill="freeze"/>'
+                  if j+1<len(seq) else '')
+            ticks.append(f'<g opacity="0"><set attributeName="opacity" to="1" '
+                         f'begin="{t:.2f}s" fill="freeze"/>{offs}{g}</g>')
+    if static:
+        s.append(f'<g transform="translate({px(cx)},{px(cy)})">{"".join(grid)}{poly}{dots}</g>')
+        s+=labs; s+=vals_static
+        return s
+    # 1) empty grid + labels pop
+    s.append(
+      f'<g transform="translate({px(cx)},{px(cy)})">'
+      f'<g transform="scale(0)">'
+      f'<animateTransform attributeName="transform" type="scale" '
+      f'values="0;1.06;1" keyTimes="0;0.8;1" dur="0.55s" begin="{T_GRID:.2f}s" '
+      f'calcMode="spline" keySplines="0.2 0.7 0.3 1;0.4 0 0.6 1" fill="freeze"/>'
+      f'{"".join(grid)}'
+      # 2) data polygon GROWS with the first sonar wave: same begin+duration,
+      #    so its vertices ride just inside the expanding wavefront
+      f'<g transform="scale(0)">'
+      f'<animateTransform attributeName="transform" type="scale" '
+      f'values="0;1" dur="3.4s" begin="{T_SON:.2f}s" fill="freeze"/>'
+      f'{poly}{dots}</g>'
+      # 3) sonar waves, from the first (painting) one onward
+      f'<g><animateTransform attributeName="transform" type="scale" '
+      f'values="0.1;1" dur="3.4s" begin="{T_SON:.2f}s" '
+      f'repeatCount="indefinite"/>'
+      f'<polygon points="0,{px(-Rmax)} {px(Rmax)},0 0,{px(Rmax)} {px(-Rmax)},0" '
+      f'fill="none" stroke="{BLUEB}" stroke-width="4" stroke-opacity="0">'
+      f'<animate attributeName="stroke-opacity" values="0.55;0" '
+      f'dur="3.4s" begin="{T_SON:.2f}s" repeatCount="indefinite"/>'
+      f'</polygon></g>'
+      f'</g></g>')
+    s.append(f'<g opacity="0"><set attributeName="opacity" to="1" '
+             f'begin="{T_GRID:.2f}s" fill="freeze"/>{"".join(labs)}</g>')
+    s.append(''.join(ticks))
     return s
 
 # ----------------------------------------------------------------- main ----
-def build(stats, static=False):
-    out=[f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CW} {CH}" '
-         f'width="{CW}" height="{CH}">']
-    out+=l_frame()
-    cp,pend=corner_prompt(static)
-    out+=cp
-    out+=trophies(stats, static, max(pend+26, IX0+400))
-    out+=radar(stats, static)
-    out.append('</svg>')
-    return ''.join(out)
+def compose(stats, static=False):
+    body=[]
+    body+=l_frame()
+    body+=corner_prompt(static)
+    body+=trophies(stats, static)
+    body+=radar(stats, static)
+    return ''.join(body)
+
+def build_band(stats, static=False):
+    body=compose(stats, static)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CW} {CUTY}" '
+            f'width="{CW}" height="{CUTY}">{body}</svg>')
+
+def build_arm(stats, static=False):
+    body=compose(stats, static)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" '
+            f'viewBox="0 {CUTY} {ARM_W} {CH-CUTY}" '
+            f'width="{ARM_W}" height="{CH-CUTY}">{body}</svg>')
 
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--user", default=os.environ.get("RADAR_USER","McVarHQ"))
-    ap.add_argument("--out",  default="panel4_radar.svg")
+    ap.add_argument("--out",  default="panel4_band.svg")
     ap.add_argument("--mock", action="store_true")
-    ap.add_argument("--static", action="store_true",
-                    help="no SMIL (for raster preview)")
+    ap.add_argument("--static", action="store_true")
     a=ap.parse_args()
     if a.mock:
         stats=MOCK
@@ -321,9 +397,13 @@ def main():
             stats=MOCK
         else:
             stats=fetch_stats(a.user, token)
-    svg=build(stats, static=a.static)
-    open(a.out,'w').write(svg)
-    print(f"wrote {a.out}  ({len(svg)} bytes)  stats={stats}")
+    band=build_band(stats, static=a.static)
+    open(a.out,'w').write(band)
+    arm_out=os.path.join(os.path.dirname(a.out) or ".",
+                         os.path.basename(a.out).replace("band","arm"))
+    arm=build_arm(stats, static=a.static)
+    open(arm_out,'w').write(arm)
+    print(f"wrote {a.out} ({len(band)}B) + {arm_out} ({len(arm)}B)  stats={stats}")
 
 if __name__=="__main__":
     main()

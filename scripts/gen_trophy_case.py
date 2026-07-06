@@ -30,7 +30,7 @@ def build(stats):
     # simple rect panel, same locked bevel recipe, 2 rows x 4 trophies
     M=20; PW=840
     COLS=4; SLOT=PW//COLS
-    ROWH=150
+    ROWH=165
     PH=BW*2+70+2*ROWH
     CW=M*2+PW+OFF-9; CH=M+PH+OFF+M
     OX=OY=M
@@ -58,7 +58,7 @@ def build(stats):
         s.append(f'<g>{"".join(cup)}</g>')
         # thresholds line under each: C/B/A/S cutoffs
         cth,bth,ath,sth=G.THRESH[key]
-        s.append(F.text_svg(f"C{cth} B{bth} A{ath} S{sth}",'vt',14,gx,ty+6*6+3+28+16,BLACK,anchor='middle')[0])
+        s.append(F.text_svg(f"C{cth} B{bth} A{ath} S{sth}",'vt',14,gx,ty+6*G.CELL+3+34+18,BLACK,anchor='middle')[0])
     s.append('</svg>')
     return ''.join(s)
 

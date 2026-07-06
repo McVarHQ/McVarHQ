@@ -37,7 +37,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RADAR_USER: ${{ github.repository_owner }}
-        run: python scripts/gen_radar.py --out panel4_radar.svg
+        run: python scripts/gen_radar.py --out panel4_band.svg
+
+      - name: generate panel6_snake.svg (contribution-calendar snake)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RADAR_USER: ${{ github.repository_owner }}
+        run: python scripts/gen_snake.py --out panel6_snake.svg
 
       - name: generate trophy case (all trophies + ranks, for picking)
         env:
@@ -49,6 +55,6 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add panel4_radar.svg trophy_case.svg trophy_case.md
+          git add panel4_band.svg panel4_arm.svg panel6_snake.svg trophy_case.svg trophy_case.md
           git diff --cached --quiet || git commit -m "chore: refresh radar panel + trophy case"
           git push
