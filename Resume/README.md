@@ -12,4 +12,6 @@
 
 <br>
 
-[![Full CV](https://img.shields.io/badge/%F0%9F%93%84%20Full%20CV-PDF-2D4A5C?style=for-the-badge)](./Varun_Anbalagan_CV.pdf)
+<a href="./Varun_Anbalagan_CV.pdf">
+  <img src="https://img.shields.io/badge/%F0%9F%93%84%20Full%20CV-PDF-2D4A5C?style=for-the-badge" width="100%" alt="Full CV">
+</a>
