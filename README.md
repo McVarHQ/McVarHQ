@@ -25,10 +25,10 @@
 </p>
 <br clear="both"/>
 
+<br>
 <p>
   <img src="./Assets/Dividers/divider3.svg" alt="" width="808">
 </p>
-<br>
 
 <p>
   <img src="./Assets/Commits/panel6_snake.svg" alt="python eat my-progress.py" width="808">
