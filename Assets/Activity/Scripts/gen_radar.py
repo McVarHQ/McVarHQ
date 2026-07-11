@@ -152,7 +152,7 @@ def rank_radius(key, val):
             return r0+(r1-r0)*(val-x0)/(x1-x0)
     return 1.0
 
-TROPHIES_SHOW=["stars","commits","prs","followers"]
+TROPHIES_SHOW=["stars","repos","prs"]
 
 LABELS={"stars":"STARS","commits":"COMMITS","prs":"PRS","issues":"ISSUES",
         "reviews":"REVIEWS","followers":"FOLLOWERS","repos":"REPOS",
