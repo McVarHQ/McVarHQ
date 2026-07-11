@@ -1,0 +1,64 @@
+name: refresh radar panel
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "Assets/Activity/Scripts/**"
+      - "Assets/Dividers/Scripts/**"
+      - "Assets/Miscellaneous/**"
+      - ".github/workflows/radar.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: Assets/Miscellaneous/Scripts
+      FONT_DIR: Assets/Miscellaneous/Fonts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install deps
+        run: pip install fonttools
+
+      - name: generate radar panel (band + arm)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RADAR_USER: ${{ github.repository_owner }}
+        run: python Assets/Activity/Scripts/gen_radar.py --out Assets/Activity/panel4_band.svg
+
+      - name: generate dividers
+        run: python Assets/Dividers/Scripts/gen_divider.py
+        env: { OUT: Assets/Dividers/divider.svg }
+
+      - name: generate trophy table (all trophies + ranks, for picking)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RADAR_USER: ${{ github.repository_owner }}
+        run: python Assets/Activity/Scripts/gen_trophy_case.py --out Assets/Activity/trophy_case.md
+
+      - name: commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Assets/Activity/panel4_band.svg Assets/Activity/panel4_arm.svg Assets/Activity/trophy_case.md Assets/Dividers/divider.svg Assets/Dividers/divider2.svg Assets/Dividers/divider3.svg
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: refresh radar panel + trophy table"
+            git status --short
+            git pull --rebase --autostash -X theirs origin main
+            git push origin main
+          else
+            echo "no changes - skipping commit, pull and push"
+          fi

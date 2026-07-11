@@ -4,31 +4,31 @@
 -->
 
 <p>
-  <img src="./panel1_anim.svg" alt="Hi! Have you met VAROON" width="808">
+  <img src="./Assets/Intro/panel1_anim.svg" alt="Hi! Have you met VAROON" width="808">
 </p>
 
 <p>
-  <img src="./divider.svg" alt="" width="808">
+  <img src="./Assets/Dividers/divider.svg" alt="" width="808">
 </p>
 
 <p>
-  <img src="./panel2_anim.svg" alt="tech_stack.detect()" width="808">
+  <img src="./Assets/TechStack/panel2_anim.svg" alt="tech_stack.detect()" width="808">
 </p>
 
 <p>
-  <img src="./divider.svg" alt="" width="808">
+  <img src="./Assets/Dividers/divider2.svg" alt="" width="808">
 </p>
 
 <!-- prettier-ignore -->
 <p>
-<img src="./panel4_band.svg" width="808" hspace="0" vspace="0" align="left"/><img src="./panel4_arm.svg" width="464" hspace="0" vspace="0" align="left"/><img src="./mm_top.svg" width="312" hspace="0" vspace="0" align="left"/><a href="./resume/"><img src="./mm_resume.svg" width="312" hspace="0" vspace="0" align="left"/></a><a href="./credentials/"><img src="./mm_cred.svg" width="312" hspace="0" vspace="0" align="left"/></a>
+<img src="./Assets/Activity/panel4_band.svg" width="808" hspace="0" vspace="0" align="left"/><img src="./Assets/Activity/panel4_arm.svg" width="464" hspace="0" vspace="0" align="left"/><img src="./Assets/Portfolio/mm_top.svg" width="312" hspace="0" vspace="0" align="left"/><a href="./Resume/"><img src="./Assets/Portfolio/mm_resume.svg" width="312" hspace="0" vspace="0" align="left"/></a><a href="./Credentials/"><img src="./Assets/Portfolio/mm_cred.svg" width="312" hspace="0" vspace="0" align="left"/></a>
 </p>
 <br clear="both"/>
 
 <p>
-  <img src="./divider.svg" alt="" width="808">
+  <img src="./Assets/Dividers/divider3.svg" alt="" width="808">
 </p>
 
 <p>
-  <img src="./panel6_snake.svg" alt="python eat my-progress.py" width="808">
+  <img src="./Assets/Commits/panel6_snake.svg" alt="python eat my-progress.py" width="808">
 </p>

@@ -1,0 +1,49 @@
+name: refresh snake panel
+
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "Assets/Commits/Scripts/**"
+      - "Assets/Miscellaneous/**"
+      - ".github/workflows/snake.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: Assets/Miscellaneous/Scripts
+      FONT_DIR: Assets/Miscellaneous/Fonts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install deps
+        run: pip install fonttools
+      - name: generate panel6_snake.svg (contribution-calendar snake)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RADAR_USER: ${{ github.repository_owner }}
+        run: python Assets/Commits/Scripts/gen_snake.py --out Assets/Commits/panel6_snake.svg
+      - name: commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Assets/Commits/panel6_snake.svg
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: refresh snake panel"
+            git status --short
+            git pull --rebase --autostash -X theirs origin main
+            git push origin main
+          else
+            echo "no changes - skipping commit, pull and push"
+          fi
