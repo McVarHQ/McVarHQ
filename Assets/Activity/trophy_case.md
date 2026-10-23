@@ -6,7 +6,7 @@
 | ISSUES | 0 | **-** | 1/5/20/50 |
 | REVIEWS | 0 | **-** | 1/5/20/50 |
 | FOLLOWERS | 1 | **C** | 1/10/40/100 |
-| REPOS | 22 | **B** | 1/10/25/50 |
+| REPOS | 23 | **B** | 1/10/25/50 |
 | CONTRIB | 0 | **-** | 1/3/10/25 |
 
 Pick trophies by editing `TROPHIES_SHOW` in `scripts/gen_radar.py`.
